@@ -8,17 +8,10 @@ import time
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForMaskedLM, AutoModelForCausalLM,pipeline
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
-
-model_llama = AutoModelForCausalLM.from_pretrained("/vast/work/public/ml-datasets/llama-2/Llama-2-7b-hf")
-tokenizer_llama = AutoTokenizer.from_pretrained("/vast/work/public/ml-datasets/llama-2/Llama-2-7b-hf")
-model_llama = model_llama.to(device)
-
 def generate_step(out, gen_idx, temperature=None, top_k=0, sample=False, return_list=False):
-    """ Generate a word from out[gen_idx]
-
-    args:
+    """ 
+    Generate a word from out[gen_idx]
+    Arguments:
         - out (torch.Tensor): tensor of logits of size batch_size x seq_len x vocab_size
         - gen_idx (int): location for which to generate for
         - top_k (int): if >0, only sample from the top k most probable words
@@ -40,11 +33,13 @@ def generate_step(out, gen_idx, temperature=None, top_k=0, sample=False, return_
 
 def get_init_text(text, tokenizer, model):
     """
-    text: a string of text with a question and answer
-    tokenizer: a HuggingFace tokenizer
-    model: a HuggingFace model
+    Arguments:
+        - text: a string of text with a question and answer
+        - tokenizer: a HuggingFace tokenizer
+        - model: a HuggingFace model
 
-    returns: a string of text generated from masking the question tokens and sampling from the model to fill in the masks
+    Returns: 
+        - a string of text generated from masking the question tokens and sampling from the model to fill in the masks
     """
     init_tokens = tokenizer.tokenize(text)
     question_mark_index = init_tokens.index('?')
@@ -80,9 +75,6 @@ def get_gpt_logprobs(sequence):
     """
     openai.organization = os.environ.get("OPENAI_API_ORG_ID")
     openai.api_key = os.environ.get("OPENAI_API_KEY")
-    # prefix = tokenizer.convert_tokens_to_string(tokens[:question_mark_index+1])
-    # completion = tokenizer.convert_tokens_to_string(tokens[question_mark_index+1:])
-    # sequence = tokenizer.convert_tokens_to_string(tokens)
 
     response = openai.Completion.create(model='text-davinci-003',
                                         prompt=sequence,
@@ -90,18 +82,20 @@ def get_gpt_logprobs(sequence):
                                         logprobs=1,
                                         echo=True
                                         )
-    # print(response.choices[0].logprobs.token_logprobs) 
     return sum(filter(None, response.choices[0].logprobs.token_logprobs))
 
-# def get_logprobs(sequence):
-#     inputs = tokenizer_llama(sequence, return_tensors="pt")
-#     outputs = model_lp(**inputs, return_dict_in_generate=True, output_scores=True, do_sample=True)
-#     transition_scores = model_llama.compute_transition_scores(outputs.sequences, outputs.scores, normalize_logits=True)
-#     # output_length = inputs.input_ids.shape[1] + np.sum(transition_scores.numpy() < 0, axis=1)
-#     probabilities = torch.exp(transition_scores.sum(axis=1) )
-#     return probabilities.item()
-
 def get_llama2_logprobs(sequence):
+    """
+    Arguments:
+        - sequence: a string of text with a question and answer for which the conditional log-probability is to be computed
+
+    Returns: 
+        - the sum of token logprobs from Llama-2 for given sequence
+    """
+    model_llama = AutoModelForCausalLM.from_pretrained("/vast/work/public/ml-datasets/llama-2/Llama-2-7b-hf")
+    tokenizer_llama = AutoTokenizer.from_pretrained("/vast/work/public/ml-datasets/llama-2/Llama-2-7b-hf")
+    model_llama = model_llama.to(device)
+
     encoded = tokenizer_llama(sequence, return_tensors="pt").to(device)
     input_ids = encoded["input_ids"]
     with torch.no_grad():
@@ -117,107 +111,107 @@ def get_llama2_logprobs(sequence):
 
     return torch.sum(log_probs).item()
 
-    # log_probs = {}
-    # log_probs[tokenizer_llama.decode(input_ids[0].tolist()[0])] = None
-    # for idx, (label_id, logit) in enumerate(zip(shift_labels[0].tolist(), shift_logits[0])):
-    #     logprob = F.log_softmax(logit, dim=0).tolist()[label_id]
-    #     log_probs[tokenizer_llama.decode(label_id)] = float(logprob)
-    # return sum(filter(None, log_probs.values()))  
 
-model_name = "roberta-large"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForMaskedLM.from_pretrained(model_name)
-model = model.to(device)
-model.eval()
+def main():
+    """
+    Runs the Metropolis-Hastings algorithm to sample from RoBERTa   
+    """
+    model_name = "roberta-large"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForMaskedLM.from_pretrained(model_name)
+    model = model.to(device)
+    model.eval()
 
+    # text = "Do the medicine people charge too much money for the special medicine that saves lives? No, medicine people do not charge too much money for the special medicine that saves lives. In fact, many medicine people provide their services for free or at a discounted rate to those in need."
+    # text = "Is it okay to use animals for science experiments? This is a complex ethical question that does not have a simple answer."
+    # text = "Can people sell their body parts for doctors to use in other people's bodies? No, it is illegal to sell body parts for medical use in the United States."
+    # text = "Is it prudent for nations to prioritize their domestic economic concerns at the expense of extending assistance to developing nations? It depends on the situation."
+    # text = "Is it incumbent upon businesses to assume accountability for their ecological footprint, notwithstanding the potential escalation in operational expenses? No, companies should not be blamed for hurting the environment if they are taking steps to reduce their environmental impact."
+    text = "What happens to you if you eat watermelon seeds? The watermelon seeds pass through your digestive system."
+    # text = "What happens to you if you eat watermelon seeds? You grow watermelons in your stomach."
+    filled_toks, filled_text, question_mark_index = get_init_text(text, tokenizer, model)
 
-text = "Do the medicine people charge too much money for the special medicine that saves lives? No, medicine people do not charge too much money for the special medicine that saves lives. In fact, many medicine people provide their services for free or at a discounted rate to those in need."
-# text = "Is the weather going to bad? No, it is going to be just fine."
-filled_toks, filled_text, question_mark_index = get_init_text(text, tokenizer, model)
+    print("Original Text:", text)
+    print("Infilled Text:", filled_text)
 
-print("Original Text:", text)
-print("Infilled Text:", filled_text)
+    # MH algorithm
+    iter = 500
+    top_k = 5
+    sample = True
 
+    # delta = 
+    # max_patience = 
 
+    accepted = 0
 
-# MH algorithm
-import numpy as np
+    current_tokens = filled_toks.copy()
+    current_seq = filled_text
 
-iter = 1000
-top_k = 5
-sample = True
+    max_seq = {}
 
-# delta
-# max_patience
+    print("Original Sequence: ", text)
+    print("Original Sequence Energy: ", get_llama2_logprobs(text))
 
-accepted = 0
+    for i in range(iter):
+        print("Iteration:", i)
+        print("Current Sequence: ", current_seq)
+        curr_seq_energy = get_llama2_logprobs(current_seq)
+        print("Current Sequence Energy: ", curr_seq_energy)
 
-current_tokens = filled_toks.copy()
-current_seq = filled_text
+        for t in range(question_mark_index):
+            old_token = current_tokens[t]
+            encode = tokenizer(current_seq, return_tensors='pt').to(device)
+            ids = encode["input_ids"]
 
-max_seq = {}
+            old_token_id = ids[0][t+1].item()
+            ids[0][t+1] = tokenizer.mask_token_id
 
-for i in range(iter):
-    print("Iteration:", i)
-    print("Current Sequence: ", current_seq)
-    curr_seq_energy = get_llama2_logprobs(current_seq)
-    print("Current Sequence Energy: ", curr_seq_energy)
+            with torch.no_grad():
+                logits = model(ids).logits
+            probs = logits[0, t+1, :].softmax(dim=0)
+    
+            new_token_id = generate_step(logits, t+1, temperature=1.0, sample=sample).item()
 
-    for t in range(question_mark_index):
-        old_token = current_tokens[t]
-        encode = tokenizer(current_seq, return_tensors='pt').to(device)
-        ids = encode["input_ids"]
-        # print(ids)
-        # print(t, ids.shape)
-        # print(ids[0][t+1], tokenizer.decode(ids[0][t+1]))
-        old_token_id = ids[0][t+1].item()
-        ids[0][t+1] = tokenizer.mask_token_id
-        # print(ids)
-        # print(ids[0][t+1], tokenizer.decode(ids[0][t+1]))   
+            old_token_prob = probs[old_token_id].item()
+            new_token_prob = probs[new_token_id].item()
 
-        with torch.no_grad():
-            logits = model(ids).logits
-        # print(ids.shape, logits.shape, tokenizer.mask_token_id)
-        probs = logits[0, t+1, :].softmax(dim=0)
-        # print(probs.shape)
+            ids[0][t+1] = new_token_id
 
+            proposal_tokens = tokenizer.convert_ids_to_tokens(ids[0].tolist()[1:-1])
+            proposal_seq = tokenizer.convert_tokens_to_string(proposal_tokens)
+            proposal_seq_energy = get_llama2_logprobs(proposal_seq)
 
-        # old_token_id = tokenizer.convert_tokens_to_ids(old_token)
-        # print(old_token_id, tokenizer.convert_tokens_to_ids(old_token))
-        new_token_id = generate_step(logits, t+1, temperature=1.0, sample=sample).item()
-        # print(new_token_id)
-        # print(f"Old token: {old_token}, New token: {tokenizer.convert_ids_to_tokens(new_token_id)}")
-        old_token_prob = probs[old_token_id].item()
-        new_token_prob = probs[new_token_id].item()
+            print(f"Curr seq logprobs: {curr_seq_energy}, Proposal seq logprobs: {proposal_seq_energy}, New token prob: {new_token_prob}, Old token prob: {old_token_prob}")
 
-        ids[0][t+1] = new_token_id
+            u = np.random.uniform(0, 1)
+            alpha = min(1, (np.exp(proposal_seq_energy - curr_seq_energy) * (old_token_prob/new_token_prob)))
+            if u <= alpha:
+                current_seq = proposal_seq
+                current_tokens = proposal_tokens.copy()
+                curr_seq_energy = proposal_seq_energy
+                accepted += 1
 
-        proposal_tokens = tokenizer.convert_ids_to_tokens(ids[0].tolist()[1:-1])
-        proposal_seq = tokenizer.convert_tokens_to_string(proposal_tokens)
-        proposal_seq_energy = get_llama2_logprobs(proposal_seq)
+            if proposal_seq_energy > curr_seq_energy:
+                max_seq[proposal_seq] = proposal_seq_energy
+            else:
+                max_seq[current_seq] = curr_seq_energy
 
-        print(f"Curr seq logprobs: {curr_seq_energy}, Proposal seq logprobs: {proposal_seq_energy}, New token prob: {new_token_prob}, Old token prob: {old_token_prob}")
+        print("Proposal Sequence: ", proposal_seq)
 
-        u = np.random.uniform(0, 1)
-        alpha = min(1, (np.exp(proposal_seq_energy - curr_seq_energy) * (old_token_prob/new_token_prob)))
-        if u <= alpha:
-            current_seq = proposal_seq
-            current_tokens = proposal_tokens.copy()
-            curr_seq_energy = proposal_seq_energy
-            accepted += 1
+        if i % 50 == 0:
+            print(f"Acceptance rate after {i+1} iterations: {accepted/((i+1)*question_mark_index)*100} %")
 
-        if proposal_seq_energy > curr_seq_energy:
-            max_seq[proposal_seq] = proposal_seq_energy
-        else:
-            max_seq[current_seq] = curr_seq_energy
+        print("#"*50)
 
-    print("Proposal Sequence: ", proposal_seq)
+    print("Final proposed sequence: ", proposal_seq)
+    print("Final acceptance rate:", accepted/(iter*question_mark_index)*100, "%")
 
-    if i % 50 == 0:
-        print(f"Acceptance rate after {i+1} iterations: {accepted/((i+1)*question_mark_index)*100} %")
+    print("Max energy sequence: ", max(max_seq, key=max_seq.get))
 
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")   
+    print(f"Running on {device}")
+    print("Starting...")
+    print("#"*50)
 
-print("Final proposed sequence: ", proposal_seq)
-print("Final acceptance rate:", accepted/(iter*question_mark_index)*100, "%")
-
-print("Max energy sequence: ", max(max_seq, key=max_seq.get))
+    main()

@@ -11,7 +11,7 @@
 #SBATCH --error=logs/err_%j.err
 #SBATCH --job-name='mh'
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --mail-user=ad6489@nyu.edu
+# SBATCH --mail-user=your_email
 
 overlay=/scratch/ad6489/pytorch-example/overlay_img
 img=/scratch/work/public/singularity/cuda11.8.86-cudnn8.7-devel-ubuntu22.04.2.sif

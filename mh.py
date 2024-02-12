@@ -16,6 +16,9 @@ def generate_step(out, gen_idx, temperature=None, top_k=0, sample=False, return_
         - gen_idx (int): location for which to generate for
         - top_k (int): if >0, only sample from the top k most probable words
         - sample (Bool): if True, sample from full distribution. Overridden by top_k
+    
+    Returns:
+        - idx (int): the token id of the generated word from the vocabulary
     """
     logits = out[:, gen_idx]
     if temperature is not None:
@@ -67,11 +70,9 @@ def get_init_text(text, tokenizer, model):
 def get_gpt_logprobs(sequence):
     """
     Arguments:
-      - sequence:
-      - question_mark_index: index of '?' in the token list that separates the question and answer tokens
-
+      - sequence: a string of text with a question and answer for which the conditional log-probability is to be computed
     Returns: 
-      - the sum of token logprobs from GPT
+      - the sum of token logprobs from GPT for given sequence
     """
     openai.organization = os.environ.get("OPENAI_API_ORG_ID")
     openai.api_key = os.environ.get("OPENAI_API_KEY")

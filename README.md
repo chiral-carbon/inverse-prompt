@@ -37,8 +37,10 @@ The `Llama-2 7b` model used in the code is hosted on NYU Greene HPC at the locat
 
 The file `mh.py` contains the test code that presently runs 1 example (batch size=1). 
 
-Submit the following command after exiting the singularity container.
-```$ sbatch run.sh``` 
+Submit the following command after exiting the singularity container:
+```
+$ sbatch run.sh
+``` 
 to run this as a sbatch job.
 
 *Before submitting*, change the email ID, overlay location and image location to your own. 

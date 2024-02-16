@@ -21,4 +21,4 @@ singularity exec --nv \
 	$img \
     /bin/bash -c \
 	"source /ext3/env.sh; python mh.py" \
-    > log.out 2> log.err
+    > logl.out 2> logl.err

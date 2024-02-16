@@ -53,7 +53,8 @@ def get_init_text(text, tokenizer, model):
     for i in range(1, question_mark_index+1):
         input_ids[0][i] = tokenizer.mask_token_id
     
-    output_logits = model(input_ids).logits
+    with torch.no_grad():
+        output_logits = model(input_ids).logits
     
     pred_ids = input_ids.clone()[0].tolist()
     for i in range(1, question_mark_index+1):
@@ -111,7 +112,6 @@ def main():
     Runs the Metropolis-Hastings algorithm to sample from RoBERTa   
     """
     
-
     # text = "Do the medicine people charge too much money for the special medicine that saves lives? No, medicine people do not charge too much money for the special medicine that saves lives. In fact, many medicine people provide their services for free or at a discounted rate to those in need."
     # text = "Is it okay to use animals for science experiments? This is a complex ethical question that does not have a simple answer."
     # text = "Can people sell their body parts for doctors to use in other people's bodies? No, it is illegal to sell body parts for medical use in the United States."
@@ -232,5 +232,8 @@ if __name__ == "__main__":
     tokenizer_llama = AutoTokenizer.from_pretrained("/vast/work/public/ml-datasets/llama-2/Llama-2-7b-hf")
     model_llama = model_llama.to(device)
     model_llama.eval()
+
+    random.seed(42)
+    np.random.seed(42)
 
     main()

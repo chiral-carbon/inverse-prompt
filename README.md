@@ -11,7 +11,7 @@ Sequence probabilities were originally computed using GPT3.5, now switched to Ll
 
 ### Prerequisites
 
-Since the code is submitted as a job on Greene HPC, please refer to [this Greene singularity setup guide](https://github.com/alexholdenmiller/nyu_cluster) by [@alexholdenmiller](https://github.com/alexholdenmiller).
+Since the code is submitted as a job on Greene HPC, please refer to [this Greene singularity setup guide](https://sites.google.com/nyu.edu/nyu-hpc/hpc-systems/greene/software/singularity-with-miniconda).
 
 Then run your singularity container with the command:
 ```
